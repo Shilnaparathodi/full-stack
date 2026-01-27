@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant browser
+    participant server
+
+    Note right of browser: User writes a note and clicks Save
+
+    browser->>server: POST /exampleapp/new_note (note data)
+    activate server
+    server-->>browser: 201 Created
+    deactivate server
+
+    Note right of browser: Browser updates the notes list without reloading the page
