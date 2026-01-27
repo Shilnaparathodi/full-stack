@@ -1,31 +1,32 @@
 // App.jsx
+
 const Header = ({ course }) => {
   return <h1>{course}</h1>
 }
 
-const Part = ({ part, exercises }) => {
-  return (
-    <p>
-      {part} {exercises}
-    </p>
-  )
+// Part component: renders a single part
+const Part = ({ name, exercises }) => {
+  return <p>{name} {exercises}</p>
 }
 
+// Content component: renders three Part components explicitly
 const Content = ({ parts }) => {
   return (
     <div>
-      {parts.map((part, index) => (
-        <Part key={index} part={part.name} exercises={part.exercises} />
-      ))}
+      <Part name={parts[0].name} exercises={parts[0].exercises} />
+      <Part name={parts[1].name} exercises={parts[1].exercises} />
+      <Part name={parts[2].name} exercises={parts[2].exercises} />
     </div>
   )
 }
 
+// Total component: calculates total exercises
 const Total = ({ parts }) => {
-  const total = parts.reduce((sum, part) => sum + part.exercises, 0)
+  const total = parts[0].exercises + parts[1].exercises + parts[2].exercises
   return <p>Number of exercises {total}</p>
 }
 
+// App component: main app with course data
 const App = () => {
   const course = 'Half Stack application development'
   const parts = [
