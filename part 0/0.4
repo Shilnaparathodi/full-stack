@@ -1,12 +1,25 @@
+# 0.4 New note diagram
+
+```mermaid
 sequenceDiagram
     participant browser
     participant server
 
-    Note right of browser: User writes a note and clicks Save
-
-    browser->>server: POST /exampleapp/new_note (note data)
+    browser->>server: POST /exampleapp/new_note
     activate server
-    server-->>browser: 201 Created
+    server-->>browser: Redirect to /exampleapp/notes
     deactivate server
 
-    Note right of browser: Browser updates the notes list without reloading the page
+    browser->>server: GET /exampleapp/notes
+    activate server
+    server-->>browser: HTML document
+    deactivate server
+
+    browser->>server: GET /exampleapp/main.css
+    server-->>browser: CSS file
+
+    browser->>server: GET /exampleapp/main.js
+    server-->>browser: JavaScript file
+
+    browser->>server: GET /exampleapp/data.json
+    server-->>browser: Updated notes list
