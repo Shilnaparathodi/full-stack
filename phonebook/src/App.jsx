@@ -1,125 +1,87 @@
-import { useState } from 'react'
-
-// Filter component
-const Filter = ({ filter, handleFilterChange }) => (
-  <div>
-    filter shown with <input value={filter} onChange={handleFilterChange} />
-  </div>
-)
-
-// Form component
-const PersonForm = ({
-  newName,
-  newNumber,
-  handleNameChange,
-  handleNumberChange,
-  addPerson
-}) => (
-  <form onSubmit={addPerson}>
-    <div>
-      name: <input value={newName} onChange={handleNameChange} />
-    </div>
-    <div>
-      number: <input value={newNumber} onChange={handleNumberChange} />
-    </div>
-    <div>
-      <button type="submit">add</button>
-    </div>
-  </form>
-)
-
-// Single person
-const Person = ({ person }) => (
-  <li>
-    {person.name} {person.number}
-  </li>
-)
-
-// Persons list
-const Persons = ({ persons }) => (
-  <ul>
-    {persons.map(person => (
-      <Person key={person.id} person={person} />
-    ))}
-  </ul>
-)
+import { useState, useEffect } from 'react'
+import personService from './services/persons'
 
 const App = () => {
-  const [persons, setPersons] = useState([
-    { name: 'Arto Hellas', number: '040-123456', id: 1 },
-    { name: 'Ada Lovelace', number: '39-44-5323523', id: 2 },
-    { name: 'Dan Abramov', number: '12-43-234345', id: 3 },
-    { name: 'Mary Poppendieck', number: '39-23-6423122', id: 4 }
-  ])
-
+  const [persons, setPersons] = useState([])
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
-  const [filter, setFilter] = useState('')
 
+  // Fetch all persons from backend
+  useEffect(() => {
+    personService
+      .getAll()
+      .then(initialPersons => setPersons(initialPersons))
+  }, [])
+
+  // Add or update a person
   const addPerson = (event) => {
     event.preventDefault()
+    const existingPerson = persons.find(p => p.name === newName)
 
-    const nameExists = persons.some(
-      person => person.name.toLowerCase() === newName.toLowerCase()
-    )
-
-    if (nameExists) {
-      alert(`${newName} is already added to phonebook`)
+    if (existingPerson) {
+      // Step 2.15: Update number if person already exists
+      if (window.confirm(`${newName} is already added, replace the old number with a new one?`)) {
+        const updatedPerson = { ...existingPerson, number: newNumber }
+        personService
+          .update(existingPerson.id, updatedPerson)
+          .then(returnedPerson => {
+            setPersons(persons.map(p => p.id !== existingPerson.id ? p : returnedPerson))
+            setNewName('')
+            setNewNumber('')
+          })
+          .catch(error => {
+            console.error('Error updating number:', error)
+          })
+      }
       return
     }
 
-    const newPerson = {
-      name: newName,
-      number: newNumber,
-      id: persons.length + 1
+    // Add new person if name does not exist
+    const personObject = { name: newName, number: newNumber }
+    personService
+      .create(personObject)
+      .then(returnedPerson => {
+        setPersons(persons.concat(returnedPerson))
+        setNewName('')
+        setNewNumber('')
+      })
+      .catch(error => {
+        console.error('Error adding person:', error)
+      })
+  }
+
+  // Step 2.14: Delete a person
+  const handleDelete = (id, name) => {
+    if (window.confirm(`Delete ${name}?`)) {
+      personService
+        .remove(id)
+        .then(() => setPersons(persons.filter(p => p.id !== id)))
+        .catch(error => console.error('Error deleting person:', error))
     }
-
-    setPersons(persons.concat(newPerson))
-    setNewName('')
-    setNewNumber('')
   }
-
-  const handleNameChange = (event) => {
-    setNewName(event.target.value)
-  }
-
-  const handleNumberChange = (event) => {
-    setNewNumber(event.target.value)
-  }
-
-  const handleFilterChange = (event) => {
-    setFilter(event.target.value)
-  }
-
-  const personsToShow =
-    filter === ''
-      ? persons
-      : persons.filter(person =>
-          person.name.toLowerCase().includes(filter.toLowerCase())
-        )
 
   return (
     <div>
       <h2>Phonebook</h2>
+      <form onSubmit={addPerson}>
+        <div>
+          Name: <input value={newName} onChange={(e) => setNewName(e.target.value)} />
+        </div>
+        <div>
+          Number: <input value={newNumber} onChange={(e) => setNewNumber(e.target.value)} />
+        </div>
+        <button type="submit">Add</button>
+      </form>
 
-      <Filter
-        filter={filter}
-        handleFilterChange={handleFilterChange}
-      />
-
-      <h3>Add a new</h3>
-
-      <PersonForm
-        newName={newName}
-        newNumber={newNumber}
-        handleNameChange={handleNameChange}
-        handleNumberChange={handleNumberChange}
-        addPerson={addPerson}
-      />
-
-      <h3>Numbers</h3>
-
-      <Persons persons={personsToShow} />
+      <h2>Numbers</h2>
+      <ul>
+        {persons.map(person => (
+          <li key={person.id}>
+            {person.name} {person.number}
+            <button onClick={() => handleDelete(person.id, person.name)}>Delete</button>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
