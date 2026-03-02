@@ -4,7 +4,8 @@ const app = express();
 
 // Middleware to parse JSON
 app.use(express.json());
-
+const cors = require('cors')
+app.use(cors())
 // 🔥 Custom Morgan token to log POST body
 morgan.token('body', (req) => {
   if (req.method === 'POST') {
@@ -86,7 +87,28 @@ app.post('/api/persons', (req, res) => {
 });
 
 // Start server
-const PORT = 3001;
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+app.put('/api/persons/:id', (req, res) => {
+  const id = req.params.id
+  const body = req.body
+
+  const person = persons.find(p => p.id === id)
+
+  if (!person) {
+    return res.status(404).json({ error: 'person not found' })
+  }
+
+  const updatedPerson = {
+    ...person,
+    number: body.number
+  }
+
+  persons = persons.map(p =>
+    p.id !== id ? p : updatedPerson
+  )
+
+  res.json(updatedPerson)
+})
