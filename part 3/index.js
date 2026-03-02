@@ -1,7 +1,24 @@
 const express = require('express');
+const morgan = require('morgan');
 const app = express();
-app.use(express.json()); // parse JSON body
 
+// Middleware to parse JSON
+app.use(express.json());
+
+// 🔥 Custom Morgan token to log POST body
+morgan.token('body', (req) => {
+  if (req.method === 'POST') {
+    return JSON.stringify(req.body);
+  }
+  return '';
+});
+
+// 🔥 Morgan logging configuration
+app.use(
+  morgan(':method :url :status :res[content-length] - :response-time ms :body')
+);
+
+// Hardcoded data
 let persons = [
   { id: "1", name: "Arto Hellas", number: "040-123456" },
   { id: "2", name: "Ada Lovelace", number: "39-44-5323523" },
@@ -9,12 +26,12 @@ let persons = [
   { id: "4", name: "Mary Poppendieck", number: "39-23-6423122" }
 ];
 
-// Step 3.1: GET all persons
+// 3.1 GET all persons
 app.get('/api/persons', (req, res) => {
   res.json(persons);
 });
 
-// Step 3.2: GET info page
+// 3.2 GET info
 app.get('/info', (req, res) => {
   const now = new Date();
   res.send(`
@@ -23,25 +40,26 @@ app.get('/info', (req, res) => {
   `);
 });
 
-// Step 3.3: GET person by ID
+// 3.3 GET single person
 app.get('/api/persons/:id', (req, res) => {
   const id = req.params.id;
   const person = persons.find(p => p.id === id);
+
   if (person) {
     res.json(person);
   } else {
-    res.status(404).end();
+    res.status(404).json({ error: "person not found" });
   }
 });
 
-// Step 3.4: DELETE person by ID
+// 3.4 DELETE person
 app.delete('/api/persons/:id', (req, res) => {
   const id = req.params.id;
   persons = persons.filter(p => p.id !== id);
   res.status(204).end();
 });
 
-// Step 3.5 + 3.6: POST new person with validation
+// 3.5 & 3.6 POST with validation
 app.post('/api/persons', (req, res) => {
   const body = req.body;
 
@@ -52,6 +70,7 @@ app.post('/api/persons', (req, res) => {
   const nameExists = persons.some(
     person => person.name.toLowerCase() === body.name.toLowerCase()
   );
+
   if (nameExists) {
     return res.status(400).json({ error: 'name must be unique' });
   }
