@@ -3,13 +3,17 @@ const morgan = require('morgan')
 const cors = require('cors')
 const path = require('path')
 
+require('dotenv').config()
+
+const Person = require('./models/person')
+
 const app = express()
 
 // Middleware
 app.use(cors())
 app.use(express.json())
 
-// 🔥 Morgan custom token (log POST body)
+// Morgan custom token (log POST body)
 morgan.token('body', (req) => {
   if (req.method === 'POST') {
     return JSON.stringify(req.body)
@@ -22,104 +26,116 @@ app.use(
 )
 
 // 🔥 Serve frontend production build
-app.use(express.static('dist'))
-
-// Hardcoded data
-let persons = [
-  { id: "1", name: "Arto Hellas", number: "040-123456" },
-  { id: "2", name: "Ada Lovelace", number: "39-44-5323523" },
-  { id: "3", name: "Dan Abramov", number: "12-43-234345" },
-  { id: "4", name: "Mary Poppendieck", number: "39-23-6423122" }
-]
+app.use(express.static(path.join(__dirname, 'dist')))
 
 // GET all persons
-app.get('/api/persons', (req, res) => {
-  res.json(persons)
+app.get('/api/persons', (req, res, next) => {
+  Person.find({})
+    .then(persons => {
+      res.json(persons)
+    })
+    .catch(next)
 })
 
 // GET info
-app.get('/info', (req, res) => {
-  const now = new Date()
-  res.send(`
-    <p>Phonebook has info for ${persons.length} people</p>
-    <p>${now}</p>
-  `)
+app.get('/info', (req, res, next) => {
+  Person.countDocuments({})
+    .then(count => {
+      const now = new Date()
+      res.send(`
+        <p>Phonebook has info for ${count} people</p>
+        <p>${now}</p>
+      `)
+    })
+    .catch(next)
 })
 
 // GET single person
-app.get('/api/persons/:id', (req, res) => {
-  const id = req.params.id
-  const person = persons.find(p => p.id === id)
-
-  if (person) {
-    res.json(person)
-  } else {
-    res.status(404).json({ error: "person not found" })
-  }
+app.get('/api/persons/:id', (req, res, next) => {
+  Person.findById(req.params.id)
+    .then(person => {
+      if (person) {
+        res.json(person)
+      } else {
+        res.status(404).json({ error: 'person not found' })
+      }
+    })
+    .catch(next)
 })
 
 // DELETE person
-app.delete('/api/persons/:id', (req, res) => {
-  const id = req.params.id
-  persons = persons.filter(p => p.id !== id)
-  res.status(204).end()
+app.delete('/api/persons/:id', (req, res, next) => {
+  Person.findByIdAndDelete(req.params.id)
+    .then(() => {
+      res.status(204).end()
+    })
+    .catch(next)
 })
 
 // POST new person
-app.post('/api/persons', (req, res) => {
+app.post('/api/persons', (req, res, next) => {
   const body = req.body
 
   if (!body.name || !body.number) {
     return res.status(400).json({ error: 'name or number is missing' })
   }
 
-  const nameExists = persons.some(
-    person => person.name.toLowerCase() === body.name.toLowerCase()
-  )
-
-  if (nameExists) {
-    return res.status(400).json({ error: 'name must be unique' })
-  }
-
-  const person = {
-    id: (Math.random() * 1000000).toFixed(0),
+  const person = new Person({
     name: body.name,
-    number: body.number
-  }
+    number: body.number,
+  })
 
-  persons = persons.concat(person)
-  res.json(person)
+  person
+    .save()
+    .then(savedPerson => {
+      res.json(savedPerson)
+    })
+    .catch(next)
 })
 
 // PUT update number
-app.put('/api/persons/:id', (req, res) => {
-  const id = req.params.id
+app.put('/api/persons/:id', (req, res, next) => {
   const body = req.body
 
-  const person = persons.find(p => p.id === id)
-
-  if (!person) {
-    return res.status(404).json({ error: 'person not found' })
-  }
-
-  const updatedPerson = {
-    ...person,
-    number: body.number
-  }
-
-  persons = persons.map(p =>
-    p.id !== id ? p : updatedPerson
+  Person.findByIdAndUpdate(
+    req.params.id,
+    { number: body.number },
+    { new: true, runValidators: true, context: 'query' }
   )
-
-  res.json(updatedPerson)
+    .then(updatedPerson => {
+      if (!updatedPerson) {
+        return res.status(404).json({ error: 'person not found' })
+      }
+      res.json(updatedPerson)
+    })
+    .catch(next)
 })
 
-// 🔥 Catch-all (for React routing in production)
-app.get('*', (req, res) => {
+const unknownEndpoint = (req, res) => {
+  res.status(404).send({ error: 'unknown endpoint' })
+}
+
+const errorHandler = (error, req, res, next) => {
+  if (error.name === 'CastError') {
+    return res.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return res.status(400).json({ error: error.message })
+  }
+
+  next(error)
+}
+
+// Unknown API endpoints should NOT fall through to the React catch-all
+app.use('/api', unknownEndpoint)
+
+//// Catch-all for React (Express 5 safe)
+app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
-// START SERVER (MUST BE LAST)
+app.use(errorHandler)
+
+// START SERVER
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
